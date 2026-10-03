@@ -312,12 +312,25 @@ void UlpPlot::drawPoints(QPainter &p, const Box &b) const {
   p.setPen(Qt::NoPen);
   p.setRenderHint(QPainter::Antialiasing, true);
 
+  // Legend. Only name the buckets a scan can actually produce: a run with no NaN
+  // disagreements should not advertise one, or the legend becomes a list of
+  // things to go looking for.
   static const char *resultNames[] = {nullptr, "correct", "mismatch",
                                       "NaN disagreement"};
   static const char *classNames[] = {"zero", "normal", "denormal", "inf", "nan"};
+  bool haveNaN = false;
+  for (const Sample &s : result_->samples) {
+    if (s.nanDisagreement) {
+      haveNaN = true;
+      break;
+    }
+  }
+
   const QFontMetricsF fm(font());
   double y = b.rect.top() + 4;
   for (int i = first; i < count; ++i) {
+    if (colorMode_ != ColorMode::InputClass && i == 3 && !haveNaN)
+      continue;
     const QColor c = colorMode_ == ColorMode::InputClass
                          ? byClass[i]
                          : (i == 1 ? good : (i == 2 ? bad : nan));

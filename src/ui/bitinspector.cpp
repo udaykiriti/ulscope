@@ -228,10 +228,10 @@ void BitInspector::refresh() {
   const uint64_t expField = (bits_ >> fmt_.mantBits) & fmt_.expMask();
   const uint64_t frac = bits_ & fmt_.fracMask();
 
-  QString signText = fmt_.hasInfNan
-                         ? (sign ? QStringLiteral("1 (negative)")
-                                 : QStringLiteral("0 (positive)"))
-                         : (sign ? QStringLiteral("1 (negative)") : QStringLiteral("0"));
+  // One place decides how a sign reads, so the Class and Fields rows cannot
+  // drift apart.
+  const QString signText =
+      sign ? QStringLiteral("1 (negative)") : QStringLiteral("0 (positive)");
 
   QString expText;
   if (fmt_.hasInfNan && expField == fmt_.expMask())
@@ -242,10 +242,13 @@ void BitInspector::refresh() {
     expText = QStringLiteral("%1 (unbiased %2)").arg(expField).arg(
         static_cast<qlonglong>(expField) - fmt_.bias);
 
+  // The Fields row below already shows the sign, so repeating it here just made
+  // the panel look like it had lost track of its own output. The spacing is
+  // more use next to the class than a duplicate of what is below.
   classLabel_->setText(
-      QStringLiteral("%1<br><span style='color:#666'>%2</span>")
+      QStringLiteral("%1<br><span style='color:#666'>spacing %2</span>")
           .arg(QString::fromLatin1(className(cls)))
-          .arg(QStringLiteral("sign: %1").arg(signText)));
+          .arg(formatExact(fmt_.ulpOf(bits_))));
 
   fieldsLabel_->setText(
       QStringLiteral("sign: %1<br>exponent: %2<br>mantissa: %3 (0x%4)")
