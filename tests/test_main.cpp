@@ -681,6 +681,32 @@ static void testExhaustiveIsGuarded() {
   check(r.samples.empty(), "and nothing was allocated");
 }
 
+// CallConv::Unknown is not a convention. It has to be rejected: falling out of
+// the dispatch switch would leave the result untouched and still report
+// success, which hands back an uninitialised value as if it were a result.
+static void testUnknownConventionIsRejected() {
+  DynamicLibrary lib;
+  std::string err;
+  if (!lib.load(ULPSCOPE_DEMO_SO, &err))
+    return;
+  void *fn = nullptr;
+  if (!lib.resolve("sqrtbf16", &fn))
+    return;
+
+  const double in = 4.0;
+  double out = -12345.0; // deliberately not what a sqrt would give
+  std::string callErr;
+  const bool ok = lib.call(fn, CallConv::Unknown, &in, nullptr, 1, &out, &callErr);
+
+  check(!ok, "an unknown calling convention is rejected");
+  check(out == -12345.0, "and the result is left untouched rather than faked");
+  check(!callErr.empty(), "and the caller is told why");
+
+  // The description must not be blank, since it is shown in the ABI tooltip.
+  check(std::string(callConvDescription(CallConv::Unknown)) != "",
+        "an unknown convention still has a description");
+}
+
 static void testReference() {
   const FloatFormat bf = FloatFormat::bf16();
   MpfrRounder r(bf);
@@ -843,6 +869,7 @@ int main(int argc, char **argv) {
   testNeighbouringArguments();
   testF64Scan();
   testExhaustiveIsGuarded();
+  testUnknownConventionIsRejected();
   testLibrary(so);
   testSweep(so);
   testScan(so);

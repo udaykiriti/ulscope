@@ -35,6 +35,8 @@ const char *callConvDescription(CallConv c) {
   case CallConv::Integer8:
     return "Argument and result are a plain 8-bit value (fp8 e4m3/e5m2), "
            "passed and returned as integers.";
+  case CallConv::Unknown:
+    return "No calling convention selected.";
   }
   return "";
 }
@@ -272,6 +274,14 @@ bool DynamicLibrary::call(void *fn, CallConv conv, const double *in,
       *error = "the 8-bit calling convention needs input bit patterns";
     return false;
   }
+  if (conv == CallConv::Unknown) {
+    // Not a real convention, so it must be rejected rather than falling out of
+    // the switch below: that would leave *out untouched and report success,
+    // handing back an uninitialised value as though it were a result.
+    if (error)
+      *error = "no calling convention selected";
+    return false;
+  }
   const double x = in[0];
   const double y = nargs > 1 ? in[1] : 0.0;
   const double z = nargs > 2 ? in[2] : 0.0;
@@ -338,6 +348,14 @@ bool DynamicLibrary::call(void *fn, CallConv conv, const double *in,
       break;
     }
     break;
+
+  default:
+    // Unreachable, since CallConv::Unknown is rejected above. Kept as a hard
+    // error rather than a silent no-op so that adding a convention without
+    // adding a case fails loudly instead of returning an untouched result.
+    if (error)
+      *error = "unsupported calling convention";
+    return false;
   }
 
   if (error)
